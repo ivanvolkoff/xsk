@@ -23,6 +23,8 @@ const StringReader = Java.type("java.io.StringReader");
 const StringWriter = Java.type("java.io.StringWriter");
 const ByteArrayInputStream = Java.type("java.io.ByteArrayInputStream");
 const ByteArrayOutputStream = Java.type("java.io.ByteArrayOutputStream");
+const CalculationViewModifierService = require("ide-migration/server/migration/api/calculationViewModifierService");
+const calculationViewModifier = new CalculationViewModifierService()
 
 class MigrationService {
 
@@ -56,7 +58,7 @@ class MigrationService {
             }
         }
 
-        return { generated: generatedFiles, updated: updatedFiles };
+        return {generated: generatedFiles, updated: updatedFiles};
     }
 
     createHdiConfigFile(workspaceName, project) {
@@ -69,10 +71,17 @@ class MigrationService {
                 calculationview: {
                     plugin_name: "com.sap.hana.di.calculationview",
                     plugin_version: "12.1.0"
+                },
+                hdbanalyticprivilege: {
+                    plugin_name: "com.sap.hana.di.analyticprivilege",
+                    plugin_version: "12.1.0"
+                },
+                analyticprivilege: {
+                    plugin_name: "com.sap.hana.di.analyticprivilege",
+                    plugin_version: "12.1.0"
                 }
             }
         };
-
 
 
         const projectName = project.getName();
@@ -180,15 +189,15 @@ class MigrationService {
             </xsl:stylesheet>
         `;
 
-        const factory = TransformerFactory.newInstance();
-        const source = new StreamSource(new StringReader(columnObjectToResourceUriXslt));
-        const transformer = factory.newTransformer(source);
+            const factory = TransformerFactory.newInstance();
+            const source = new StreamSource(new StringReader(columnObjectToResourceUriXslt));
+            const transformer = factory.newTransformer(source);
 
-        const text = new StreamSource(new ByteArrayInputStream(calculationViewXmlBytes));
-        const bout = new ByteArrayOutputStream();
+            const text = new StreamSource(new ByteArrayInputStream(calculationViewXmlBytes));
+            const bout = new ByteArrayOutputStream();
 
-        transformer.transform(text, new StreamResult(bout));
-        return bout.toByteArray();
+            transformer.transform(text, new StreamResult(bout));
+            return bout.toByteArray();
         } catch (e) {
             console.log("Error json: " + JSON.stringify(e));
         }
@@ -262,7 +271,12 @@ class MigrationService {
         const project = workspace.getProject(projectName)
         const projectFile = project.createFile(relativePath);
         const resource = repositoryManager.getResource(repositoryPath);
-        projectFile.setContent(resource.getContent());
+
+        if (relativePath.endsWith('hdbcalculationview') || relativePath.endsWith('calculationview') || repositoryPath.endsWith('hdbcalculationview') || repositoryPath.endsWith('calculationview')) {
+            projectFile.setContent(calculationViewModifier.removeTypeArtifact(resource.getContent()));
+        } else {
+            projectFile.setContent(resource.getContent());
+        }
     }
 
     getAllFilesForDU(du) {
